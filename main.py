@@ -1,88 +1,131 @@
 import pygame
 import sys
 
-# Настройки окна
-WIDTH, HEIGHT = 800, 400
-FPS = 10
+# Константы
+FRAME_W, FRAME_H = 16, 16
+STATES = ['idle', 'run', 'jump', 'fall', 'slide']
+FRAMES_PER_STATE = 8
+ANIM_SPEED = 0.15  # скорость проигрывания (кадра за кадр)
+GRAVITY = 900       # гравитация
+JUMP_FORCE = -400   # сила прыжка
+PLAYER_SPEED = 200  # скорость передвижения
+GROUND_Y = 300      # уровень земли по оси Y
 
-# Размеры кадров
-FRAME_WIDTH = 112
-IDLE_HEIGHT = 20
-RUN_HEIGHT = 20
-JUMP_HEIGHT = 50
+class SpriteSheet:
+    def __init__(self, filename):
+        self.sheet = pygame.image.load(filename).convert_alpha()
 
-SCALE = 3
+    def image_at(self, rect):
+        x, y, w, h = rect
+        image = pygame.Surface((w, h), pygame.SRCALPHA)
+        image.blit(self.sheet, (0, 0), rect)
+        return image
 
-# Инициализация
-pygame.init()
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Анимации персонажа")
-clock = pygame.time.Clock()
+    def load_animations(self):
+        animations = {}
+        for col, state in enumerate(STATES):
+            frames = []
+            for row in range(FRAMES_PER_STATE):
+                x = col * FRAME_W
+                y = row * FRAME_H
+                frames.append(self.image_at((x, y, FRAME_W, FRAME_H)))
+            animations[state] = frames
+        return animations
 
-# Загрузка спрайтов
-idle_sheet = pygame.image.load("TheKeeper1.1.png").convert_alpha()
-run_sheet = pygame.image.load("TheKeeper1.2.png").convert_alpha()
-jump_sheet = pygame.image.load("TheKeeper1.3.png").convert_alpha()
+class Player(pygame.sprite.Sprite):
+    def __init__(self, pos, spritesheet):
+        super().__init__()
+        self.animations = spritesheet.load_animations()
+        self.state = 'idle'
+        self.frame_index = 0.0
+        self.anim_time = 0.0
+        self.sliding = False
+        self.facing_right = True
 
-# Функция: разрезать горизонтальный спрайт-лист
-def load_animation(sheet, frame_width, frame_height, total_frames):
-    frames = []
-    for i in range(total_frames):
-        x = i * frame_width
-        y = 0
-        frame = sheet.subsurface(pygame.Rect(x, y, frame_width, frame_height))
-        frame = pygame.transform.scale(frame, (frame_width * SCALE, frame_height * SCALE))
-        frames.append(frame)
-    return frames
+        self.image = self.animations[self.state][0]
+        self.rect = self.image.get_rect(topleft=pos)
+        self.velocity = pygame.math.Vector2(0, 0)
+        self.on_ground = True
 
-# Анимации
-animations = {
-    "idle": load_animation(idle_sheet, FRAME_WIDTH, IDLE_HEIGHT, 8),
-    "run": load_animation(run_sheet, FRAME_WIDTH, RUN_HEIGHT, 8),
-    "jump": load_animation(jump_sheet, FRAME_WIDTH, JUMP_HEIGHT, 8),
-}
+    def handle_input(self):
+        keys = pygame.key.get_pressed()
+        # горизонтальное движение
+        self.velocity.x = 0
+        if keys[pygame.K_LEFT]:
+            self.velocity.x = -PLAYER_SPEED
+            self.facing_right = False
+        if keys[pygame.K_RIGHT]:
+            self.velocity.x = PLAYER_SPEED
+            self.facing_right = True
 
-# Стартовая анимация
-animation_name = "idle"
-frame_index = 0
-current_animation = animations[animation_name]
+        # прыжок
+        if keys[pygame.K_SPACE] and self.on_ground:
+            self.velocity.y = JUMP_FORCE
+            self.on_ground = False
 
-# Позиция персонажа
-x = WIDTH // 2
-y = HEIGHT // 2
+        # скольжение
+        self.sliding = keys[pygame.K_DOWN] and self.on_ground
 
-# Цикл игры
-running = True
-while running:
-    screen.fill((30, 30, 30))
-    keys = pygame.key.get_pressed()
+    def update_state(self):
+        if self.sliding:
+            self.state = 'slide'
+        elif not self.on_ground:
+            self.state = 'jump' if self.velocity.y < 0 else 'fall'
+        elif self.velocity.x != 0:
+            self.state = 'run'
+        else:
+            self.state = 'idle'
 
-    # Управление
-    if keys[pygame.K_RIGHT]:
-        animation_name = "run"
-    elif keys[pygame.K_RETURN]:
-        animation_name = "jump"
-    else:
-        animation_name = "idle"
+    def apply_gravity(self, dt):
+        self.velocity.y += GRAVITY * dt
+        self.rect.y += self.velocity.y * dt
+        if self.rect.bottom >= GROUND_Y:
+            self.rect.bottom = GROUND_Y
+            self.velocity.y = 0
+            self.on_ground = True
 
-    # Обновить кадры
-    current_animation = animations[animation_name]
-    frame_index = (frame_index + 1) % len(current_animation)
+    def animate(self, dt):
+        # наращиваем индекс кадра плавно
+        frames = self.animations[self.state]
+        self.frame_index += ANIM_SPEED * dt
+        if self.frame_index >= len(frames):
+            self.frame_index = 0.0
+        frame = frames[int(self.frame_index)]
+        # поворот спрайта
+        self.image = pygame.transform.flip(frame, not self.facing_right, False)
 
-    # Центрировать по разной высоте кадров
-    frame = current_animation[frame_index]
-    frame_rect = frame.get_rect(center=(x, y))
+    def update(self, dt):
+        self.handle_input()
+        self.update_state()
+        # движение по X
+        self.rect.x += self.velocity.x * dt
+        # движение по Y (гравитация)
+        self.apply_gravity(dt)
+        # обновление анимации
+        self.animate(dt)
 
-    # Отображение
-    screen.blit(frame, frame_rect)
 
-    # События
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+def main():
+    pygame.init()
+    screen = pygame.display.set_mode((640, 360))
+    clock = pygame.time.Clock()
 
-    pygame.display.flip()
-    clock.tick(FPS)
+    spritesheet = SpriteSheet('spritesheet.png')
+    player = Player((100, 100), spritesheet)
+    all_sprites = pygame.sprite.Group(player)
 
-pygame.quit()
-sys.exit()
+    while True:
+        dt = clock.tick(60) / 1000.0
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+        all_sprites.update(dt)
+        screen.fill((30, 30, 30))
+        pygame.draw.line(screen, (100, 100, 100), (0, GROUND_Y), (640, GROUND_Y))
+        all_sprites.draw(screen)
+        pygame.display.flip()
+
+if __name__ == '__main__':
+    main()
