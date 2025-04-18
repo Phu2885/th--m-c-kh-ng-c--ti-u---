@@ -23,11 +23,11 @@ class SpriteSheet:
 
     def load_animations(self):
         animations = {}
-        for col, state in enumerate(STATES):
+        for row, state in enumerate(STATES):
             frames = []
-            for row in range(FRAMES_PER_STATE):
-                x = col * FRAME_W
-                y = row * FRAME_H
+            for col in range(FRAMES_PER_STATE):
+                x = col * FRAME_W 
+                y = row * FRAME_H * 3
                 frames.append(self.image_at((x, y, FRAME_W, FRAME_H)))
             animations[state] = frames
         return animations
@@ -93,6 +93,7 @@ class Player(pygame.sprite.Sprite):
         frame = frames[int(self.frame_index)]
         # поворот спрайта
         self.image = pygame.transform.flip(frame, not self.facing_right, False)
+
 
     def update(self, dt):
         self.handle_input()
