@@ -6,7 +6,7 @@ FRAME_W, FRAME_H = 16, 16
 SCALE = 3            
 STATES = ['idle', 'run', 'jump', 'fall', 'slide']
 FRAMES_PER_STATE = 8
-ANIM_SPEED = 5  # скорость проигрывания (кадра за кадр)
+ANIM_SPEED = 7  # скорость проигрывания (кадра за кадр)
 GRAVITY = 900       # гравитация
 JUMP_FORCE = -400   # сила прыжка
 PLAYER_SPEED = 200  # скорость передвижения
@@ -55,10 +55,10 @@ class Player(pygame.sprite.Sprite):
     def handle_input(self):
         keys = pygame.key.get_pressed()
         self.velocity.x = 0
-        if keys[pygame.K_LEFT]:
+        if keys[pygame.K_a]:
             self.velocity.x = -PLAYER_SPEED
             self.facing_right = False
-        if keys[pygame.K_RIGHT]:
+        if keys[pygame.K_d]:
             self.velocity.x = PLAYER_SPEED
             self.facing_right = True
         if keys[pygame.K_SPACE] and self.on_ground:
