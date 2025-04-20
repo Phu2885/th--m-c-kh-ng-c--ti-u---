@@ -61,7 +61,7 @@ class Player(pygame.sprite.Sprite):
         if keys[pygame.K_d] or keys[pygame.K_RIGHT]: 
             self.velocity.x = PLAYER_SPEED
             self.facing_right = True
-        if (keys[pygame.K_SPACE] or keys[pygame.K_w]) and self.on_ground:
+        if (keys[pygame.K_SPACE] or keys[pygame.K_w] or keys[pygame.K_UP]) and self.on_ground:
             self.velocity.y = JUMP_FORCE
             self.on_ground = False
         self.sliding = keys[pygame.K_DOWN] and self.on_ground
